@@ -1,0 +1,184 @@
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import plotly.express as px
+import pandas as pd
+import plotly.graph_objects as go 
+
+df = pd.read_csv('/Users/soviedo/Downloads/marketACSRanking.csv')
+msa = [{"label": x, "value": x} for x in df.loc[:,'Metropolitan Area'].to_list()]
+percentile_rank = [{"label": y, "value": y} for y in df.loc[:, 'Percentile Rank'].to_list()]
+
+dash_table.DataTable(
+    id='demographic_table',
+    columns=[{"name": i, "id": i} for i in df.columns],
+    data=df.to_dict('records'),
+)
+
+def generate_table(dataframe, max_rows=40):
+    return html.Table([
+        html.Thead(
+            html.Tr([html.Th(col) for col in dataframe.columns])
+        ),
+        html.Tbody([
+            html.Tr([
+                html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
+            ]) for i in range(min(len(dataframe), max_rows))
+        ])
+    ])
+
+fig_overall = px.bar(df, x="Percentile Rank", y="Metropolitan Area", barmode="group")
+
+fig_social = px.bar(df, x="Social Vulnerability", y="Metropolitan Area", barmode="group")
+
+fig_climate = px.bar(df, x="Climate Hazard", y="Metropolitan Area", barmode="group")
+
+fig_economic = px.bar(df, x="Economic Strength", y="Metropolitan Area", barmode="group")
+
+
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
+app.layout = html.Div(children=[
+    html.H1('Climanomics Adaptive Contribution Score'),
+    html.H6("ACS captures the potential to positively contribute to the climate adaptivity of the market. It is based on the hazard exposure, social vulnerability, and economic strength of the market. The value of each component represents its percentile rank relative to other US markets. The overall score is based on an aggregation of relative ranks of the components."),
+
+    html.H6('Select a Metropolitan Area'),
+    dcc.Dropdown(
+        id='msa-dropdown',
+        options=msa       
+    ),
+    html.Div(id='msa-dropdown-container'),
+
+    html.H6('Select a Decade'),
+    dcc.Slider(
+        id='decade-slider',
+        min=2020,
+        max=2100,
+        step=1,
+        marks={
+            2020: {'label': '2020'},
+            2030: {'label': '2030'},
+            2040: {'label': '2040'},
+            2050: {'label': '2050'},
+            2060: {'label': '2060'},
+            2070: {'label': '2070'},
+            2080: {'label': '2080'},
+            2090: {'label': '2090'},
+            2100: {'label': '2100'}
+        }
+    ),
+    html.Div(id='decade-slider-output-container'),
+
+    html.H6('Select an Emissions Scenario'),
+    dcc.RadioItems(
+        id='emissions-scenarios-input',
+        options=[
+            {'label': 'RCP 8.5', 'value': 'RCP 8.5'},
+            {'label': 'RCP 6.5', 'value': 'RCP 6.5'},
+            {'label': 'RCP 4.5', 'value': 'RCP 4.5'},
+            {'label': 'RCP 2.6', 'value': 'RCP 2.6'}
+            ]
+        ),
+    html.Div(id='emissions-scenarios-output'),
+
+
+
+
+    html.H4(children='Comparative Analysis'),
+    dcc.Tabs(id="comp-analysis-tabs", value='fig_overall', children=[
+        dcc.Tab(label='Overall Rank', value='fig-overall-rank'),
+        dcc.Tab(label='Social Vulnerability', value='fig-social-rank'),
+        dcc.Tab(label='Climate Hazard', value='fig-climate-rank'),
+        dcc.Tab(label='Economic Strength', value='fig-economic-rank')
+    ]),
+    html.Div(id='comp-analysis-graphs')
+])
+
+
+
+@app.callback(
+    Output('msa-dropdown-container', 'children'),
+    Input('msa-dropdown', 'value'))
+def update_output(value):
+    return 'You have selected "{}"'.format(value)
+
+@app.callback(
+    dash.dependencies.Output('decade-slider-output-container', 'children'),
+    [dash.dependencies.Input('decade-slider', 'value')])
+def update_output(value):
+    return 'You have selected "{}"'.format(value)
+
+@app.callback(
+    dash.dependencies.Output('emissions-scenarios-output', 'children'),
+    [dash.dependencies.Input('emissions-scenarios-input', 'value')])
+def update_output(value):
+    return 'You have selected "{}"'.format(value)
+
+@app.callback(Output('comp-analysis-graphs', 'children'),
+            Input('comp-analysis-tabs', 'value'))
+def render_content(tab):
+    if tab == 'fig-overall-rank':
+        return html.Div([
+            html.H3('Overall Ranking'),
+            dcc.Graph(
+                id='fig-overall-rank',
+                figure=fig_overall 
+                ), 
+            generate_table(df)
+            ])
+    elif tab == 'fig-social-rank':
+        return html.Div([
+            html.H3('Ranking by Social Vulnerability'),
+            dcc.Graph(
+                id='fig-social-rank',
+                figure=fig_social
+                ),
+            generate_table(df)
+            ])      
+    elif tab == 'fig-climate-rank':
+        return html.Div([
+            html.H3('Ranking by Climate Hazard'),
+            dcc.Graph(
+                id='fig-climate-rank',
+                figure=fig_climate
+                ),
+            generate_table(df)
+            ])  
+    elif tab == 'fig-economic-rank':
+        return html.Div([
+            html.H3('Ranking by Economic Strength'),
+            dcc.Graph(
+                id='fig-economic-rank',
+                figure=fig_economic
+                ),
+            generate_table(df)
+            ])        
+
+dcc.Graph(
+    id='acs-overall-rank',
+    figure=fig_overall
+    ),
+            
+dcc.Graph(
+    id='acs-social-rank',
+    figure=fig_social
+    ),
+
+dcc.Graph(
+    id='acs-climate-rank',
+    figure=fig_climate
+    ),
+
+dcc.Graph(
+    id='acs-economic-rank',
+    figure=fig_economic
+    )
+
+
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
+
